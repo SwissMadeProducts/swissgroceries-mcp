@@ -23,6 +23,7 @@ async function connect(malicious=false){
 }
 async function invalid(name:string,args:Record<string,unknown>){try{const r=await client.callTool({name,arguments:args});expect(r.isError).toBe(true);}catch(e){expect(String(e)).toMatch(/error|invalid|selection/i);}}
 describe('MCP privacy boundary',()=>{
+  it('provides privacy and selection instructions directly during MCP initialization',async()=>{await connect();expect(client.getInstructions()).toMatch(/explicitly selected/);expect(client.getInstructions()).toMatch(/never include chat history/);});
   it('requires explicit selection before any network request for every multi-retailer tool',async()=>{
     await connect();
     for(const [name,args] of Object.entries({search_products:{query:'milk'},get_promotions:{},find_stores:{near:{zip:'8001'}},health_check:{},plan_shopping:{items:[{query:'milk'}],near:{zip:'8001'},strategy:'single_store'}}))await invalid(name,args);

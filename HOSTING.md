@@ -12,7 +12,7 @@ Every multi-retailer tool requires `chains`. There is no default selection.
 {"query":"milch","chains":"all"}
 ```
 
-`all` includes Migros, Coop, Aldi, Denner, Lidl, Volgshop, Otto's, and Coop City. Empty/unknown/missing selections fail validation before any network request. Single-retailer detail/stock tools require a `chain`. Plugin instructions use the user's explicitly selected retailers and ask when the choice is unknown.
+`all` includes Migros, Coop, Aldi, Denner, Lidl, Volgshop, Otto's, and Coop City. Empty/unknown/missing selections fail validation before any network request. Single-retailer detail/stock tools require a `chain`. MCP initialization instructions and the private plugin both use the user's explicitly selected retailers and ask when the choice is unknown.
 
 ## Data boundary
 
