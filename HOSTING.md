@@ -36,6 +36,7 @@ Railway infrastructure is in `.railway/railway.ts`. Run `railway config plan` be
 npm ci --ignore-scripts
 npm run build
 npm test
+npm run test:http
 npm audit
 npm run start:http
 ```

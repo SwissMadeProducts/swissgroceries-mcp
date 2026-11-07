@@ -48,7 +48,8 @@
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build && npm test",
     "bundle:mcpb": "tsx scripts/build-mcpb.ts",
-    "start:http": "node dist/http.js"
+    "start:http": "node dist/http.js",
+    "test:http": "npm run build && node --test test-http/*.test.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
