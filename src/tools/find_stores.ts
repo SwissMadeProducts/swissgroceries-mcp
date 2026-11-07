@@ -1,3 +1,4 @@
+import { retailerSelectionSchema, resolveChains, locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { NormalizedStore } from '../adapters/types.js';
@@ -5,21 +6,8 @@ import { geocode } from '../services/geocoding.js';
 import { ToolError } from './errors.js';
 
 export const findStoresSchema = z.object({
-  near: z.union([
-    z.object({
-      lat: z.number().describe('Latitude in decimal degrees (WGS 84), e.g. 47.3769'),
-      lng: z.number().describe('Longitude in decimal degrees (WGS 84), e.g. 8.5417'),
-    }).describe('Coordinates of the search center'),
-    z.object({
-      zip: z.string().describe('Swiss postal code (PLZ / NPA), e.g. "8001"'),
-    }).describe('Swiss postal code (PLZ), e.g. "8001"'),
-    z.object({
-      address: z.string().describe('Free-text address string, e.g. "Bahnhofstrasse 1, Zürich" — geocoded via OpenStreetMap Nominatim'),
-    }).describe('Free-text address — geocoded via Nominatim; prefer zip or lat/lng for speed'),
-  ]).describe('Center of the search radius. Pass either coordinates, a Swiss ZIP, or a free-text address.'),
-  chains: z.array(z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity']))
-    .optional()
-    .describe('Limit results to specific chains. Omit to search all configured chains. Coop City (coopcity) is opt-in and only included when listed here.'),
+  near: locationSchema,
+  chains: retailerSelectionSchema,
   radiusKm: z.number().positive().max(50)
     .optional()
     .describe('Search radius in kilometers (1–50). Defaults to 5 km.'),
@@ -45,14 +33,14 @@ export async function findStoresHandler(
       throw new ToolError(
         'address_not_found',
         `Address "${(err as any).query}" could not be geocoded`,
-        'Try a more specific address or pass a Swiss ZIP code or { lat, lng } coordinates.',
+        'Use a Swiss ZIP code or supplied coordinates.',
       );
     }
     if (err.code === 'unavailable') {
       throw new ToolError(
         'unavailable',
         (err as any).reason,
-        'The Nominatim geocoding service is temporarily unavailable. Try passing a ZIP or { lat, lng } instead.',
+        'Use a Swiss ZIP or supplied coordinates. External geocoding is disabled.',
       );
     }
     throw new ToolError(
@@ -63,7 +51,7 @@ export async function findStoresHandler(
   }
 
   const radius = input.radiusKm ?? 5;
-  const adapters = registry.withCapability('storeSearch', input.chains);
+  const adapters = registry.withCapability('storeSearch', resolveChains(input.chains));
 
   const results = await Promise.all(
     adapters.map(async (a) => {

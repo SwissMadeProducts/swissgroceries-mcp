@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createServer } from '../../src/index.js';
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
 import { findStoresSchema } from '../../src/tools/find_stores.js';
 import { searchProductsSchema } from '../../src/tools/search_products.js';
 import { getProductSchema } from '../../src/tools/get_product.js';
@@ -25,7 +25,7 @@ describe('tool descriptions', () => {
 
   it('each tool schema has a top-level description of at least 100 characters', () => {
     for (const { name, schema } of allSchemas) {
-      const jsonSchema = zodToJsonSchema(schema) as any;
+      const jsonSchema = z.toJSONSchema(schema) as any;
       const desc: string = jsonSchema.description ?? '';
       expect(
         desc.length,
@@ -36,7 +36,7 @@ describe('tool descriptions', () => {
 
   it('each tool schema JSON output has a description field populated', () => {
     for (const { name, schema } of allSchemas) {
-      const jsonSchema = zodToJsonSchema(schema) as any;
+      const jsonSchema = z.toJSONSchema(schema) as any;
       expect(jsonSchema.description, `${name} missing description`).toBeTruthy();
     }
   });
@@ -47,12 +47,12 @@ describe('tool descriptions', () => {
   });
 
   it('find_stores schema description mentions location or search or store', () => {
-    const jsonSchema = zodToJsonSchema(findStoresSchema) as any;
+    const jsonSchema = z.toJSONSchema(findStoresSchema) as any;
     expect(jsonSchema.description.toLowerCase()).toMatch(/location|search|store/);
   });
 
   it('plan_shopping schema description mentions strategy', () => {
-    const jsonSchema = zodToJsonSchema(planShoppingSchema) as any;
+    const jsonSchema = z.toJSONSchema(planShoppingSchema) as any;
     expect(jsonSchema.description.toLowerCase()).toMatch(/strateg/);
   });
 });

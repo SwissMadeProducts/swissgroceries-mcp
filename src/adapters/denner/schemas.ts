@@ -16,7 +16,7 @@ export const DennerProductSchema = z.object({
   imageUrl: z.string().nullable().optional(),
   priceDiscount: z.number().nullable().optional(),
   priceOrigin: z.number().nullable().optional(),
-  priceOverride: z.union([z.number(), z.record(z.unknown())]).nullable().optional(),
+  priceOverride: z.union([z.number(), z.record(z.string(), z.unknown())]).nullable().optional(),
   ecoLabels: z.array(z.string()).optional(),
   validFrom: z.string().optional(),
   validTo: z.string().optional(),

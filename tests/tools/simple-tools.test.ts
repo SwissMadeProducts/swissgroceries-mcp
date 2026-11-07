@@ -28,7 +28,7 @@ describe('simple tools', () => {
 
   it('get_promotions aggregates across chains', async () => {
     const r = new AdapterRegistry(); r.register(full('migros')); r.register(full('coop'));
-    const out = await getPromotionsHandler(r, {});
+    const out = await getPromotionsHandler(r, {chains:'all'});
     expect(out.length).toBe(2);
   });
 

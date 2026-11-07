@@ -28,8 +28,8 @@ export const PROMPTS: PromptDef[] = [
     description: 'Summarise this week\'s best grocery deals across all configured Swiss chains, optionally filtered by category, chain, or location. Lists the top discounts by % off and absolute saving, calling out Swiss household staples (laundry, dairy, drinks) when relevant.',
     arguments: [
       { name: 'category', description: 'Optional product category or keyword to focus on (e.g. "wine", "laundry", "baby", "cheese"). If omitted, surveys all categories.' },
-      { name: 'chains', description: 'Optional comma-separated chain list (e.g. "migros,coop,ottos"). Defaults to all chains.' },
-      { name: 'near', description: 'Optional Swiss ZIP or city to weight results geographically (e.g. "5430" or "Wettingen").' },
+      { name: 'chains', description: 'Retailer selection: all or a comma-separated list (e.g. migros,coop). Ask the user when missing.' },
+      { name: 'near', description: 'Optional Swiss ZIP to weight results geographically (e.g. "5430" or "Wettingen").' },
     ],
     build(a) {
       const category = nonEmpty(a.category);
@@ -40,7 +40,7 @@ export const PROMPTS: PromptDef[] = [
         'Use the `get_promotions` tool to pull current promotional deals across the configured Swiss grocery chains.',
         chains
           ? `Restrict the query to these chains: ${chains}.`
-          : 'Survey all configured chains (Migros, Coop, Aldi, Denner, Lidl, Volgshop, Otto\'s, Coop City).',
+          : 'Ask the user to choose one, several, or all retailers before making any tool call.',
         category
           ? `Focus on the "${category}" category — pass it as the \`query\` parameter to filter promotions, and ignore unrelated hits.`
           : 'Cover food, drugstore, drinks, and household categories.',
@@ -59,10 +59,10 @@ export const PROMPTS: PromptDef[] = [
   },
   {
     name: 'compare_basket_across_chains',
-    description: 'Compare the cost of a shopping basket across all configured Swiss grocery chains and recommend where to shop. Returns a per-chain total, identifies which chain is cheapest for each item, and produces a multi-store split-cart plan if it materially beats single-store shopping.',
+    description: 'Compare the cost of a shopping basket across explicitly selected Swiss grocery chains and recommend where to shop. Returns a per-chain total, identifies which chain is cheapest for each item, and produces a multi-store split-cart plan if it materially beats single-store shopping.',
     arguments: [
       { name: 'items', description: 'Required. Comma-separated list of items with optional quantities (e.g. "milk 2L, bananas 1kg, brot, eggs 12, butter 250g"). German, French, Italian, or English keywords all work — chains accept different languages.', required: true },
-      { name: 'near', description: 'Optional Swiss ZIP, city, or address to factor in store proximity (e.g. "8001" or "Bahnhofstrasse 1, Zürich"). Without it, the comparison is price-only.' },
+      { name: 'near', description: 'Optional Swiss ZIP to factor in store proximity (e.g. "8001" or "8050"). Without it, the comparison is price-only.' },
       { name: 'preferred_chain', description: 'Optional chain whose price the others should be benchmarked against (e.g. "migros"). Defaults to no benchmark.' },
     ],
     build(a) {
@@ -76,8 +76,8 @@ export const PROMPTS: PromptDef[] = [
 
       const lines = [
         items
-          ? `Compare prices for this basket across all configured Swiss grocery chains: ${itemList.map((i) => `"${i}"`).join(', ')}.`
-          : 'Compare prices for the basket the user described across all configured Swiss grocery chains.',
+          ? `Compare prices for this basket across explicitly selected Swiss grocery chains: ${itemList.map((i) => `"${i}"`).join(', ')}.`
+          : 'Compare prices for the basket the user described across explicitly selected Swiss grocery chains.',
         '',
         'Use `plan_shopping` as the primary tool — pass the items as a list, and run all three strategies:',
         '- `single_store` — cheapest single-chain trip',
@@ -105,12 +105,12 @@ export const PROMPTS: PromptDef[] = [
   },
   {
     name: 'cheapest_recipe_ingredients',
-    description: 'Given a recipe (list of ingredients with quantities, or a recipe URL), find the cheapest place to buy each ingredient across all configured Swiss grocery chains and produce a consolidated shopping plan.',
+    description: 'Given a recipe (list of ingredients with quantities, or a recipe URL), find the cheapest place to buy each ingredient across explicitly selected Swiss grocery chains and produce a consolidated shopping plan.',
     arguments: [
       { name: 'ingredients', description: 'Required if no `recipe_url`. Newline-, comma-, or semicolon-separated ingredient list with quantities (e.g. "500g pasta\\n200g parmesan\\n2 eggs\\n100ml milk").' },
       { name: 'recipe_url', description: 'Optional URL of a recipe page to fetch and parse. If provided, extract the ingredient list from the page first.' },
       { name: 'servings', description: 'Optional number of servings to scale to. If the recipe is for 4 and you want 6, pass "6" here.' },
-      { name: 'near', description: 'Optional Swiss ZIP or address. When provided, the plan also factors in store proximity (split_cart strategy).' },
+      { name: 'near', description: 'Optional Swiss ZIP. When provided, the plan also factors in store proximity (split_cart strategy).' },
     ],
     build(a) {
       const ingredients = nonEmpty(a.ingredients);
@@ -127,7 +127,7 @@ export const PROMPTS: PromptDef[] = [
         servings ? `Scale the quantities to ${servings} servings before searching.` : '',
         '',
         'For each ingredient:',
-        '1. Search for it via `search_products` across all configured chains.',
+        '1. Search for it via `search_products` across explicitly selected chains.',
         '2. Match the cheapest exact-or-equivalent product, using **unit price** (CHF/kg or CHF/l) for comparisons across different pack sizes.',
         '3. If a quantity (e.g. "500g pasta") is given but only a 1 kg pack exists, note that the user will buy more than the recipe needs and adjust the cost share accordingly.',
         '',
@@ -174,7 +174,7 @@ export function getPrompt(name: string, args: Record<string, string | undefined>
   return {
     description: prompt.description,
     messages: [
-      { role: 'user', content: { type: 'text', text: prompt.build(args) } },
+      { role: 'user', content: { type: 'text', text: 'Privacy rule: obtain an explicit retailer choice before calls. Pass chains="all" only when the user chooses all, otherwise pass the selected list. Use ZIP codes or supplied coordinates; external address geocoding is disabled. Never forward unrelated conversation context.\n\n' + prompt.build(args) } },
     ],
   };
 }

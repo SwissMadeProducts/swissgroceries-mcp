@@ -1,3 +1,4 @@
+import { assertRetailerDestination } from './outbound.js';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { logger } from './log.js';
 
@@ -19,7 +20,8 @@ export interface HttpOpts {
   init?: RequestInit;
 }
 
-interface CacheEntry { value: unknown; expires: number; fetchedAt: number; }
+interface CacheEntry { value: unknown; expires: number; fetchedAt: number; bytes:number; }
+let cacheBytes=0;
 const cache = new Map<string, CacheEntry>();
 const cacheDisabled = process.env.SWISSGROCERIES_DISABLE_CACHE === '1';
 
@@ -110,7 +112,6 @@ function recordFailure(host: string): void {
   c.failures++;
   if (c.failures >= CIRCUIT_FAILURE_THRESHOLD) {
     c.openedAt = Date.now();
-    logger.debug(`[circuit] opened for ${host} after ${c.failures} failures`);
   }
 }
 
@@ -124,6 +125,7 @@ function recordSuccess(host: string): void {
  * Fetch JSON with caching, retry, throttling, and per-host circuit breaker.
  */
 export async function httpJson<T = unknown>(url: string, opts: HttpOpts = {}): Promise<T> {
+  assertRetailerDestination(url,opts.init?.method??'GET');
   const host = hostOf(url);
   if (circuitOpen(host)) {
     throw new Error(`circuit_open: ${host} is unhealthy; cooling down`);
@@ -135,7 +137,6 @@ export async function httpJson<T = unknown>(url: string, opts: HttpOpts = {}): P
   if (!cacheDisabled && cacheKey) {
     const hit = cache.get(cacheKey);
     if (hit && hit.expires > Date.now()) {
-      logger.debug(`[cache HIT] ${cacheKey}`);
       reportFetch(hit.fetchedAt, true);
       return hit.value as T;
     }
@@ -156,18 +157,30 @@ export async function httpJson<T = unknown>(url: string, opts: HttpOpts = {}): P
         await throttle(host, rate);
         const timeout = AbortSignal.timeout(timeoutMs);
         const signal = opts.init?.signal ? AbortSignal.any([opts.init.signal, timeout]) : timeout;
-        const res = await fetch(url, { ...opts.init, signal });
+        const res = await fetch(url, { ...opts.init, signal, redirect:'error', credentials:'omit' });
         if (res.status >= 500) throw new Error(`HTTP ${res.status}`);
         if (!res.ok) {
           // 4xx: don't retry, surface to caller
-          const text = await res.text();
-          throw new Error(`HTTP ${res.status}: ${text.slice(0, 200)}`);
+          await res.body?.cancel();
+          throw new Error(`HTTP ${res.status}`);
         }
-        const json = (await res.json()) as T;
+        const declared=Number(res.headers.get('content-length')??0);
+        if(declared>16_000_000)throw new Error('Retailer response too large');
+        const reader=res.body?.getReader();
+        let text='';
+        if(reader){let size=0;const decoder=new TextDecoder();while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>16_000_000){await reader.cancel();throw new Error('Retailer response too large');}text+=decoder.decode(value,{stream:true});}text+=decoder.decode();}
+        const json = JSON.parse(text) as T;
         recordSuccess(host);
         const fetchedAt = Date.now();
         if (!cacheDisabled && cacheKey) {
-          cache.set(cacheKey, { value: json, expires: fetchedAt + cacheMaxAge, fetchedAt });
+          const bytes=Buffer.byteLength(text,'utf8');
+          const old=cache.get(cacheKey); if(old){cacheBytes-=old.bytes;cache.delete(cacheKey);}
+          for(const [key,value] of cache){if(value.expires<=fetchedAt){cacheBytes-=value.bytes;cache.delete(key);}}
+          while(cache.size>=128 || (cacheBytes+bytes>32_000_000 && cache.size>0)){
+            const key=cache.keys().next().value!;cacheBytes-=cache.get(key)!.bytes;cache.delete(key);
+          }
+          cache.set(cacheKey, { value: json, expires: fetchedAt + cacheMaxAge, fetchedAt,bytes });
+          cacheBytes+=bytes;
         }
         reportFetch(fetchedAt, false);
         return json;
@@ -177,7 +190,6 @@ export async function httpJson<T = unknown>(url: string, opts: HttpOpts = {}): P
         if (/HTTP 4\d\d/.test(msg)) throw e; // permanent client error
         if (attempt < retries) {
           const wait = backoff * Math.pow(2, attempt);
-          logger.debug(`[retry ${attempt + 1}/${retries}] ${url}: ${msg} (waiting ${wait}ms)`);
           await new Promise((r) => setTimeout(r, wait));
         }
       }
@@ -200,6 +212,7 @@ export async function httpJson<T = unknown>(url: string, opts: HttpOpts = {}): P
 /** Reset all caches and circuits. Useful for tests. */
 export function _resetHttpState(): void {
   cache.clear();
+  cacheBytes=0;
   circuits.clear();
   lastCallByHost.clear();
   inFlightByHost.clear();

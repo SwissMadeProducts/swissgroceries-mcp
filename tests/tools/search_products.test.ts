@@ -31,15 +31,15 @@ function makePageableAdapter(chain: any, allResults: any[]): StoreAdapter {
 
 describe('search_products tool', () => {
   it('validates query is non-empty', () => {
-    expect(() => searchProductsSchema.parse({ query: '' })).toThrow();
-    expect(() => searchProductsSchema.parse({ query: 'milk' })).not.toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: '' })).toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: 'milk' })).not.toThrow();
   });
 
   it('returns results grouped by chain', async () => {
     const r = new AdapterRegistry();
     r.register(makeAdapter('migros', [{ chain: 'migros', id: '1', name: 'milk', price: { current: 1.5, currency: 'CHF' }, tags: [] }]));
     r.register(makeAdapter('coop', []));
-    const out = await searchProductsHandler(r, { query: 'milk' });
+    const out = await searchProductsHandler(r, { chains: 'all', query: 'milk' });
     expect(out.byChain.migros?.length).toBe(1);
     expect(out.byChain.coop?.length).toBe(0);
   });
@@ -50,7 +50,7 @@ describe('search_products tool', () => {
     const coop = makeAdapter('coop', []);
     coop.searchProducts = async () => ({ ok: false, error: { code: 'unavailable', reason: 'DataDome challenge' } });
     r.register(coop);
-    const out = await searchProductsHandler(r, { query: 'penne' });
+    const out = await searchProductsHandler(r, { chains: 'all', query: 'penne' });
     expect(out.byChain.coop).toEqual([]);
     expect(out.errors).toEqual([{ chain: 'coop', code: 'unavailable', reason: 'DataDome challenge' }]);
     expect(out.sources?.coop).toBeUndefined();
@@ -59,7 +59,7 @@ describe('search_products tool', () => {
   it('reports per-chain data freshness in `sources`', async () => {
     const r = new AdapterRegistry();
     r.register(makeAdapter('migros', [{ chain: 'migros', id: '1', name: 'milk', price: { current: 1.5, currency: 'CHF' }, tags: [] }]));
-    const out = await searchProductsHandler(r, { query: 'milk' });
+    const out = await searchProductsHandler(r, { chains: 'all', query: 'milk' });
     expect(out.sources?.migros).toBeDefined();
     // Mock adapter does no httpJson fetch → treated as fresh-now, not cached.
     expect(out.sources?.migros?.fromCache).toBe(false);
@@ -67,10 +67,10 @@ describe('search_products tool', () => {
   });
 
   it('offset is optional and defaults gracefully', () => {
-    expect(() => searchProductsSchema.parse({ query: 'milk' })).not.toThrow();
-    expect(() => searchProductsSchema.parse({ query: 'milk', offset: 0 })).not.toThrow();
-    expect(() => searchProductsSchema.parse({ query: 'milk', offset: -1 })).toThrow();
-    expect(() => searchProductsSchema.parse({ query: 'milk', offset: 501 })).toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: 'milk' })).not.toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: 'milk', offset: 0 })).not.toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: 'milk', offset: -1 })).toThrow();
+    expect(() => searchProductsSchema.parse({ chains: 'all', query: 'milk', offset: 501 })).toThrow();
   });
 
   it('offset is passed through and paginates results', async () => {
@@ -84,8 +84,8 @@ describe('search_products tool', () => {
     const r = new AdapterRegistry();
     r.register(makePageableAdapter('migros', products));
 
-    const page1 = await searchProductsHandler(r, { query: 'product', limit: 5, offset: 0 });
-    const page2 = await searchProductsHandler(r, { query: 'product', limit: 5, offset: 5 });
+    const page1 = await searchProductsHandler(r, { chains: 'all', query: 'product', limit: 5, offset: 0 });
+    const page2 = await searchProductsHandler(r, { chains: 'all', query: 'product', limit: 5, offset: 5 });
 
     expect(page1.byChain.migros?.length).toBe(5);
     expect(page2.byChain.migros?.length).toBe(5);

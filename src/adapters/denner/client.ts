@@ -80,7 +80,6 @@ class DennerAuth {
         },
       })) as SignupResponse;
       this.clientId = su.clientId;
-      logger.debug(`[denner-auth] signup ok, clientId=${this.clientId}`);
     }
     const si = (await httpJson(`${BASE}/api/auth/m/signin`, {
       retries: 2,
@@ -97,7 +96,6 @@ class DennerAuth {
     })) as SigninResponse;
     this.accessToken = si.accessToken;
     this.tokenExp = decodeJwtExp(si.accessToken);
-    logger.debug(`[denner-auth] signin ok, exp=${new Date(this.tokenExp * 1000).toISOString()}`);
     return this.accessToken;
   }
 
@@ -108,7 +106,7 @@ class DennerAuth {
   }
 }
 
-const auth = new DennerAuth(process.env.DENNER_JWT || undefined);
+const auth = new DennerAuth();
 
 export function makeDennerClient(_jwt?: string): DennerClient {
   return {

@@ -31,7 +31,9 @@ import { ToolError } from './tools/errors.js';
 import { listPrompts, getPrompt } from './prompts.js';
 import { logger } from './util/log.js';
 
-import { zodToJsonSchema } from 'zod-to-json-schema';
+import { z } from 'zod';
+import { resolveChains } from './selection.js';
+import { withRetailerScope } from './util/outbound.js';
 
 export function buildRegistry(): AdapterRegistry {
   const r = new AdapterRegistry();
@@ -51,7 +53,7 @@ const TOOLS = [
     name: 'find_stores',
     description: [
       'Find grocery stores near a location, filtered by chain and search radius.',
-      'Accepts a Swiss ZIP code, GPS coordinates, or a free-text address as the search center.',
+      'Accepts a Swiss ZIP code or supplied coordinates. External address geocoding is disabled. Choose one or several retailers, or chains="all"; missing selection is rejected.',
       'Returns store name, address, chain, location, and opening hours where available.',
       'Use for "find a Migros near me", "which Coop branches are in 8001?", or before checking stock.',
     ].join(' '),
@@ -62,7 +64,7 @@ const TOOLS = [
     name: 'search_products',
     description: [
       'Search for products across configured Swiss grocery chains (Migros, Coop, Aldi, Denner, Lidl, Volgshop, Otto\'s, Coop City) by keyword.',
-      'The `coop` chain covers the coop.ch supermarket assortment (groceries, household, drugstore) only. The Coop City department-store range (coop-city.ch: cosmetics, fashion, household, electronics) is the separate `coopcity` chain, which is opt-in: include it in `chains` to search it (it is skipped when `chains` is omitted).',
+      'The `coop` chain covers the coop.ch supermarket assortment (groceries, household, drugstore) only. The Coop City department-store range (coop-city.ch: cosmetics, fashion, household, electronics) is the separate `coopcity` chain, included when selected or with chains="all"; omitting chains is rejected.',
       'Supports optional filters for price, size range, and product tags (organic, vegan, budget, etc.).',
       'Returns results grouped by chain with normalised price, unit price, size, and promotion info.',
       'A `sources` map reports each chain\'s data freshness (fetchedAt timestamp + fromCache flag) so you can tell the user how current the prices are.',
@@ -107,7 +109,7 @@ const TOOLS = [
   },
   {
     name: 'health_check',
-    description: 'Probe each registered chain adapter with a trivial query and report status, latency, and capability flags. Use this when a chain seems missing from results or when debugging adapter problems.',
+    description: 'Probe explicitly selected chain adapters with a trivial query and report status, latency, and capability flags. Use this when a chain seems missing from results or when debugging adapter problems.',
     schema: healthCheckSchema,
     handler: healthCheckHandler,
   },
@@ -134,7 +136,8 @@ export async function createServer(registry: AdapterRegistry = buildRegistry()) 
     tools: TOOLS.map((t) => ({
       name: t.name,
       description: t.description,
-      inputSchema: zodToJsonSchema(t.schema),
+      inputSchema: z.toJSONSchema(t.schema, {target:"draft-7"}) as any,
+      annotations: {readOnlyHint:true,destructiveHint:false,idempotentHint:true,openWorldHint:true},
     })),
   }));
 
@@ -182,7 +185,8 @@ export async function createServer(registry: AdapterRegistry = buildRegistry()) 
     if (!tool) throw new Error(`Unknown tool: ${req.params.name}`);
     try {
       const args = tool.schema.parse(req.params.arguments ?? {});
-      const result = await (tool.handler as any)(registry, args);
+      const selected = 'chains' in args ? resolveChains(args.chains) : [(args as {chain:any}).chain];
+      const result = await withRetailerScope(selected, () => (tool.handler as any)(registry, args));
       return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       };
@@ -243,5 +247,5 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  main().catch((e) => { logger.info(e); process.exit(1); });
+  main().catch(() => { logger.info('Server failed'); process.exit(1); });
 }

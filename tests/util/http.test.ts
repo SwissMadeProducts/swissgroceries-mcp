@@ -6,13 +6,14 @@ function makeResponse(body: unknown, status = 200): Response {
   return {
     ok: status >= 200 && status < 300,
     status,
+    get body() { return new Response(JSON.stringify(body)).body; },
     json: async () => body,
     text: async () => JSON.stringify(body),
     headers: { get: () => null },
   } as unknown as Response;
 }
 
-const TEST_URL = 'https://example.test/api/data';
+const TEST_URL = 'https://www.coop.ch/rest/v2/coopathome/products/api/data';
 
 beforeEach(() => {
   _resetHttpState();
@@ -114,7 +115,7 @@ describe('withFetchMeta — fetch freshness', () => {
 
     const { meta } = await withFetchMeta(async () => {
       await httpJson(TEST_URL, { cacheKey: 'meta:agg:a' }); // hit (old time)
-      await httpJson('https://example.test/b', { cacheKey: 'meta:agg:b' }); // miss (new time)
+      await httpJson('https://www.coop.ch/rest/v2/coopathome/products/b', { cacheKey: 'meta:agg:b' }); // miss (new time)
     });
 
     // Mixed hit+miss → not fully cached
@@ -135,13 +136,13 @@ describe('httpJson — circuit breaker', () => {
     const promises: Promise<unknown>[] = [];
     for (let i = 0; i < 5; i++) {
       promises.push(
-        httpJson('https://failing.test/x', { retries: 0 }).catch(() => null),
+        httpJson('https://www.coop.ch/rest/v2/coopathome/products/x', { retries: 0 }).catch(() => null),
       );
     }
     await Promise.all(promises);
 
     // 6th call should be rejected immediately with circuit_open error
-    await expect(httpJson('https://failing.test/x', { retries: 0 }))
+    await expect(httpJson('https://www.coop.ch/rest/v2/coopathome/products/x', { retries: 0 }))
       .rejects.toThrow(/circuit_open/);
   });
 });
@@ -156,7 +157,7 @@ describe('httpJson — retry on 5xx', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await httpJson('https://retry.test/x', { retries: 3, backoffMs: 0 });
+    const result = await httpJson('https://www.coop.ch/rest/v2/coopathome/products/x', { retries: 3, backoffMs: 0 });
     expect(result).toEqual({ ok: true });
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
@@ -165,7 +166,7 @@ describe('httpJson — retry on 5xx', () => {
     const fetchMock = vi.fn().mockResolvedValue(makeResponse('not found', 404));
     vi.stubGlobal('fetch', fetchMock);
 
-    await expect(httpJson('https://err.test/x', { retries: 3 })).rejects.toThrow(/HTTP 404/);
+    await expect(httpJson('https://www.coop.ch/rest/v2/coopathome/products/x', { retries: 3 })).rejects.toThrow(/HTTP 404/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
@@ -177,8 +178,8 @@ describe('httpJson — rate limiting', () => {
 
     // 2 req/sec → 500ms between calls
     const t0 = Date.now();
-    await httpJson('https://ratelimit.test/1', { rateLimitPerSec: 2, retries: 0 });
-    await httpJson('https://ratelimit.test/2', { rateLimitPerSec: 2, retries: 0 });
+    await httpJson('https://www.coop.ch/rest/v2/coopathome/products/1', { rateLimitPerSec: 2, retries: 0 });
+    await httpJson('https://www.coop.ch/rest/v2/coopathome/products/2', { rateLimitPerSec: 2, retries: 0 });
     const elapsed = Date.now() - t0;
 
     // Should have waited at least ~450ms (allow jitter)

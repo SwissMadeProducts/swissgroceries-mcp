@@ -1,11 +1,10 @@
+import { retailerSelectionSchema, resolveChains, locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Chain } from '../adapters/types.js';
 
 export const healthCheckSchema = z.object({
-  chains: z.array(z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity']))
-    .optional()
-    .describe('Chains to probe. Default: all configured.'),
+  chains: retailerSelectionSchema,
   timeoutMs: z.number().int().positive().max(30000).optional()
     .describe('Per-chain timeout in milliseconds. Default 5000.'),
 }).describe('Probe each registered chain adapter with a trivial query and report which are healthy. Useful for diagnosing why a particular chain is missing from search/plan results.');
@@ -27,18 +26,18 @@ export async function healthCheckHandler(
   registry: AdapterRegistry,
   input: HealthCheckInput,
 ): Promise<{ chains: HealthCheckResult[]; summary: { healthy: number; unhealthy: number; unregistered: number } }> {
-  const all: Chain[] = registry.list().map((a) => a.chain);
-  const requested = input.chains ?? all;
+  const requested = resolveChains(input.chains);
   const timeout = input.timeoutMs ?? 5000;
 
   const results = await Promise.all(requested.map(async (chain): Promise<HealthCheckResult> => {
     const adapter = registry.get(chain);
     if (!adapter) return { chain, registered: false, ok: false };
     const start = Date.now();
+    let timer:ReturnType<typeof setTimeout>|undefined;
     try {
       const r = await Promise.race([
         adapter.searchProducts({ query: TRIVIAL_QUERY, limit: 1 }),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout)),
+        new Promise<never>((_, reject) => (timer=setTimeout(() => reject(new Error('timeout')), timeout))),
       ]);
       const latencyMs = Date.now() - start;
       if (r.ok) {
@@ -60,6 +59,7 @@ export async function healthCheckHandler(
         capabilities: { ...adapter.capabilities },
       };
     }
+    finally {clearTimeout(timer);}
   }));
 
   const summary = {

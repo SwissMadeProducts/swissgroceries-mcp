@@ -1,3 +1,4 @@
+import { retailerSelectionSchema, resolveChains, locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { Chain, NormalizedProduct } from '../adapters/types.js';
@@ -9,12 +10,10 @@ const TAG_VALUES = [
 ] as const;
 
 export const searchProductsSchema = z.object({
-  query: z.string().min(1)
+  query: z.string().min(1).max(200)
     .describe('Search term in any language, e.g. "Milch", "pâtes", "Bier". At least 1 character.'),
-  chains: z.array(z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity']))
-    .optional()
-    .describe('Restrict search to specific chains. Omit to search all configured chains in parallel. Coop City (coopcity) is opt-in and only included when listed here.'),
-  storeIds: z.array(z.string())
+  chains: retailerSelectionSchema,
+  storeIds: z.array(z.string().max(100)).max(50)
     .optional()
     .describe('Filter results to products available in these store IDs (chain-specific internal IDs).'),
   filters: z.object({
@@ -64,7 +63,7 @@ export async function searchProductsHandler(
   registry: AdapterRegistry,
   input: SearchProductsInput,
 ): Promise<SearchProductsOutput> {
-  const adapters = registry.withCapability('productSearch', input.chains);
+  const adapters = registry.withCapability('productSearch', resolveChains(input.chains));
   const errors: SearchProductsOutput['errors'] = [];
   const byChain: SearchProductsOutput['byChain'] = {};
   const sources: SearchProductsOutput['sources'] = {};

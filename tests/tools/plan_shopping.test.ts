@@ -29,6 +29,7 @@ describe('plan_shopping tool', () => {
     r.register(adapter('migros', 1.5, 2.0));
     r.register(adapter('coop', 1.7, 1.8));
     const out = await planShoppingHandler(r, {
+      chains: ['migros','coop'],
       items: [{ query: 'milk' }, { query: 'bread' }],
       near: { zip: '8001' },
       strategy: 'split_cart',
@@ -39,6 +40,7 @@ describe('plan_shopping tool', () => {
 
   it('rejects empty items array', () => {
     expect(() => planShoppingSchema.parse({
+      chains: ['migros','coop'],
       items: [], near: { zip: '8001' }, strategy: 'single_store',
     })).toThrow();
   });

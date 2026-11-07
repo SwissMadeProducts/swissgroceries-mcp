@@ -47,22 +47,24 @@
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build && npm test",
-    "bundle:mcpb": "tsx scripts/build-mcpb.ts"
+    "bundle:mcpb": "tsx scripts/build-mcpb.ts",
+    "start:http": "node dist/http.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "migros-api-wrapper": "^1.1.37",
-    "zod": "^3.24.4",
-    "zod-to-json-schema": "^3.25.2"
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "axios": "^1.21.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tsx": "^4.0.0",
+    "railway": "^3.16.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.0",
-    "vitest": "^2.0.0"
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "mcpName": "io.github.nicktcode/swissgroceries-mcp"
 }

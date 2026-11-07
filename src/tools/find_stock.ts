@@ -1,3 +1,4 @@
+import { locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { StockResult } from '../adapters/types.js';
@@ -7,24 +8,12 @@ import { ToolError } from './errors.js';
 export const findStockSchema = z.object({
   chain: z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity'])
     .describe('The chain to query for stock. Only chains with perStoreStock capability are supported.'),
-  productId: z.string().min(1)
+  productId: z.string().min(1).max(200)
     .describe('Chain-specific product ID to check stock for. Obtain via search_products or get_product.'),
-  near: z.union([
-    z.object({
-      lat: z.number().describe('Latitude in decimal degrees (WGS 84), e.g. 47.3769'),
-      lng: z.number().describe('Longitude in decimal degrees (WGS 84), e.g. 8.5417'),
-    }).describe('Coordinates of the search center'),
-    z.object({
-      zip: z.string().describe('Swiss postal code (PLZ / NPA), e.g. "8001"'),
-    }).describe('Swiss postal code (PLZ), e.g. "8001"'),
-    z.object({
-      address: z.string().describe('Free-text address, e.g. "Bahnhofstrasse 1, Zürich" — geocoded via OpenStreetMap Nominatim'),
-    }).describe('Free-text address — geocoded via Nominatim; prefer zip or lat/lng for speed'),
-  ]).optional()
-    .describe('Optional location to filter nearby stores. Pass coordinates, a Swiss ZIP, or a free-text address. If omitted, all stores may be queried.'),
+  near: locationSchema.optional(),
   storeId: z.string()
     .optional()
-    .describe('Query a single specific store by its chain-specific store ID. Takes precedence over `near`.'),
+    .describe('Filter returned stock results to this store ID. The retailer API may still return multiple stores.'),
 }).describe('Check which stores of a given chain have a specific product in stock. Useful for "is this item available near me?" queries. Not all chains support per-store stock; check capabilities first.');
 
 export type FindStockInput = z.infer<typeof findStockSchema>;
@@ -67,14 +56,14 @@ export async function findStockHandler(
         throw new ToolError(
           'address_not_found',
           `Address "${(err as any).query}" could not be geocoded`,
-          'Try a more specific address or pass a Swiss ZIP code or { lat, lng } coordinates.',
+          'Use a Swiss ZIP code or supplied coordinates.',
         );
       }
       if (err.code === 'unavailable') {
         throw new ToolError(
           'unavailable',
           (err as any).reason,
-          'The Nominatim geocoding service is temporarily unavailable. Try passing a ZIP or { lat, lng } instead.',
+          'Use a Swiss ZIP or supplied coordinates. External geocoding is disabled.',
         );
       }
       throw new ToolError(
@@ -94,5 +83,5 @@ export async function findStockHandler(
       'Try again later or use search_products as a fallback.',
     );
   }
-  return r.data;
+  return input.storeId ? r.data.filter(result=>result.store.id===input.storeId) : r.data;
 }

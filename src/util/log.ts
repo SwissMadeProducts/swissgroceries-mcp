@@ -11,5 +11,5 @@ function log(lvl: LogLevel, args: unknown[]): void {
 
 export const logger = {
   info: (...args: unknown[]) => log('info', args),
-  debug: (...args: unknown[]) => log('debug', args),
+  debug: (..._args: unknown[]) => {},
 };

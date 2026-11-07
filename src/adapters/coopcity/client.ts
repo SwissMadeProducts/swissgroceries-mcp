@@ -5,9 +5,7 @@ import { httpJson } from '../../util/http.js';
 // behind DataDome, but the OCC REST API answers plain JSON. Verified live
 // 2026-10-20.
 const BASE = 'https://www.coop-city.ch/rest/v2/city';
-const UA = process.env.SWISSGROCERIES_USER_AGENT_COOPCITY
-  ?? process.env.SWISSGROCERIES_USER_AGENT_COOP
-  ?? 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
+const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148';
 
 export async function coopCityFetch(
   path: string,

@@ -43,11 +43,11 @@ describe('logger respects SWISSGROCERIES_LOG_LEVEL', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('emits debug messages at debug level', async () => {
+  it('suppresses debug messages even at debug level', async () => {
     process.env.SWISSGROCERIES_LOG_LEVEL = 'debug';
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { logger } = await import('../../src/util/log.js');
     logger.debug('verbose detail');
-    expect(spy).toHaveBeenCalledWith('[debug]', 'verbose detail');
+    expect(spy).not.toHaveBeenCalled();
   });
 });

@@ -1,18 +1,17 @@
+import { retailerSelectionSchema, resolveChains, locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import type { NormalizedPromotion } from '../adapters/types.js';
 
 export const getPromotionsSchema = z.object({
-  chains: z.array(z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity']))
-    .optional()
-    .describe('Limit to specific chains. Omit to fetch promotions from all configured chains. Coop City (coopcity) is opt-in and only included when listed here.'),
-  query: z.string()
+  chains: retailerSelectionSchema,
+  query: z.string().max(200)
     .optional()
     .describe('Optional keyword to filter promotions by product name, e.g. "Käse", "wine".'),
   endingWithinDays: z.number().int().positive().max(60)
     .optional()
     .describe('Only return promotions ending within this many days (1–60). Useful for "ending soon" queries.'),
-  storeIds: z.array(z.string())
+  storeIds: z.array(z.string().max(100)).max(50)
     .optional()
     .describe('Restrict to promotions valid at these store IDs (chain-specific). Obtain store IDs from find_stores.'),
 }).describe('List current promotional deals across Swiss grocery chains. Supports keyword search and filtering by chain, store, or expiry window. Use for "what is on sale?" or "any deals on pasta this week?" queries.');
@@ -23,7 +22,7 @@ export async function getPromotionsHandler(
   registry: AdapterRegistry,
   input: GetPromotionsInput,
 ): Promise<NormalizedPromotion[]> {
-  const adapters = registry.withCapability('promotions', input.chains);
+  const adapters = registry.withCapability('promotions', resolveChains(input.chains));
   const lists = await Promise.all(
     adapters.map(async (a) => {
       const r = await a.getPromotions({

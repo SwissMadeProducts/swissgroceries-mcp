@@ -32,7 +32,7 @@ export class DennerAdapter implements StoreAdapter {
   };
 
   private cache: { products?: any[]; publications?: any[]; expires?: number } = {};
-  private client: DennerClient = makeDennerClient(process.env.DENNER_JWT ?? '');
+  private client: DennerClient = makeDennerClient();
 
   private async loadContent(): Promise<{ products: any[]; publications: any[] }> {
     if (this.cache.products && this.cache.expires && Date.now() < this.cache.expires) {

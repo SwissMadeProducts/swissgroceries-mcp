@@ -7,7 +7,7 @@ import { ToolError } from './errors.js';
 export const getProductSchema = z.object({
   chain: z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity'])
     .describe('The grocery chain that owns this product ID.'),
-  id: z.string().min(1)
+  id: z.string().min(1).max(200)
     .describe('Chain-specific product identifier, e.g. Migros cumulus ID or Coop product number. Obtain via search_products.'),
 }).describe('Fetch full product details (price, size, tags, promotions) for a specific chain + product ID pair. Use after search_products to drill into a result.');
 

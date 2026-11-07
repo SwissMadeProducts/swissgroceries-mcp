@@ -7,3 +7,6 @@ dist/
 .mcpb-stage/
 *.mcpb
 docs/
+
+.railway/*
+!.railway/railway.ts

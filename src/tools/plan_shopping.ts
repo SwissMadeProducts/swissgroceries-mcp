@@ -1,3 +1,4 @@
+import { retailerSelectionSchema, resolveChains, locationSchema } from '../selection.js';
 import { z } from 'zod';
 import type { AdapterRegistry } from '../adapters/registry.js';
 import { plan, type PlanResult } from '../services/planner.js';
@@ -7,7 +8,7 @@ import { ToolError } from './errors.js';
 const TAG_VALUES = ['organic','budget','premium','fairtrade','lactose-free','gluten-free','vegan','vegetarian','sugar-free','regional','swiss-made'] as const;
 
 const itemSchema = z.object({
-  query: z.string().min(1)
+  query: z.string().min(1).max(200)
     .describe('Product search term, e.g. "Milch", "pasta integrale". The planner searches this across chains.'),
   quantity: z.number().int().positive()
     .optional()
@@ -39,23 +40,10 @@ const itemSchema = z.object({
 }).describe('A single item in the shopping list.');
 
 export const planShoppingSchema = z.object({
-  items: z.array(itemSchema).min(1)
+  items: z.array(itemSchema).min(1).max(30)
     .describe('The list of items to shop for. At least one item required.'),
-  near: z.union([
-    z.object({
-      lat: z.number().describe('Latitude in decimal degrees (WGS 84).'),
-      lng: z.number().describe('Longitude in decimal degrees (WGS 84).'),
-    }).describe('GPS coordinates of the shopper\'s location'),
-    z.object({
-      zip: z.string().describe('Swiss postal code (PLZ / NPA), e.g. "8001".'),
-    }).describe('Swiss postal code (PLZ), e.g. "8001"'),
-    z.object({
-      address: z.string().describe('Free-text address string — geocoded via OpenStreetMap Nominatim; prefer zip or lat/lng for speed.'),
-    }).describe('Free-text address — geocoded via Nominatim; prefer zip or lat/lng for speed'),
-  ]).describe('Shopper\'s location — used to find nearby stores. Pass coordinates, ZIP, or address.'),
-  chains: z.array(z.enum(['migros', 'coop', 'aldi', 'denner', 'lidl', 'volgshop', 'ottos', 'coopcity']))
-    .optional()
-    .describe('Restrict the plan to these chains. Omit to consider all configured chains. Coop City (coopcity) is opt-in and only included when listed here.'),
+  near: locationSchema,
+  chains: retailerSelectionSchema,
   strategy: z.enum(['single_store', 'split_cart', 'absolute_cheapest'])
     .describe([
       'single_store: buy everything at one chain (minimises trips).',
@@ -95,14 +83,14 @@ export async function planShoppingHandler(
       throw new ToolError(
         'address_not_found',
         `Address "${(err as any).query}" could not be geocoded`,
-        'Try a more specific address or pass a Swiss ZIP code or { lat, lng } coordinates.',
+        'Use a Swiss ZIP code or supplied coordinates.',
       );
     }
     if (err.code === 'unavailable') {
       throw new ToolError(
         'unavailable',
         (err as any).reason,
-        'The Nominatim geocoding service is temporarily unavailable. Try passing a ZIP or { lat, lng } instead.',
+        'Use a Swiss ZIP or supplied coordinates. External geocoding is disabled.',
       );
     }
     throw new ToolError(
@@ -115,7 +103,7 @@ export async function planShoppingHandler(
   return plan(registry, {
     items: input.items,
     near: { lat: geo.data.lat, lng: geo.data.lng, city: geo.data.city },
-    chains: input.chains,
+    chains: resolveChains(input.chains),
     strategy: input.strategy,
     splitPenaltyChf: input.splitPenaltyChf,
     radiusKm: input.radiusKm,

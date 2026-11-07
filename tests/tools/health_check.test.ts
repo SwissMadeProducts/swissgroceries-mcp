@@ -21,7 +21,7 @@ describe('health_check tool', () => {
   it('returns ok for a healthy adapter', async () => {
     const r = new AdapterRegistry();
     r.register(fakeAdapter('migros', true));
-    const out = await healthCheckHandler(r, {});
+    const out = await healthCheckHandler(r, {chains:r.list().map(a=>a.chain)});
     expect(out.chains.find((c) => c.chain === 'migros')?.ok).toBe(true);
     expect(out.summary.healthy).toBe(1);
   });
@@ -29,7 +29,7 @@ describe('health_check tool', () => {
   it('returns unhealthy with error code when adapter fails', async () => {
     const r = new AdapterRegistry();
     r.register(fakeAdapter('coop', false));
-    const out = await healthCheckHandler(r, {});
+    const out = await healthCheckHandler(r, {chains:r.list().map(a=>a.chain)});
     const coop = out.chains.find((c) => c.chain === 'coop');
     expect(coop?.ok).toBe(false);
     expect(coop?.error?.code).toBe('unavailable');
@@ -44,11 +44,11 @@ describe('health_check tool', () => {
     expect(out.summary.unregistered).toBe(1);
   });
 
-  it('defaults to probing exactly the registered adapters', async () => {
+  it('probes exactly the explicitly listed adapters', async () => {
     const r = new AdapterRegistry();
     r.register(fakeAdapter('migros', true));
     r.register(fakeAdapter('coop', true));
-    const out = await healthCheckHandler(r, {});
+    const out = await healthCheckHandler(r, {chains:r.list().map(a=>a.chain)});
     expect(out.chains.map((c) => c.chain).sort()).toEqual(['coop', 'migros']);
     expect(out.summary.unregistered).toBe(0);
   });

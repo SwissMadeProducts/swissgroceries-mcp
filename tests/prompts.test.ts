@@ -31,7 +31,7 @@ describe('getPrompt', () => {
     expect(msg.role).toBe('user');
     expect(msg.content.type).toBe('text');
     expect(msg.content.text).toContain('get_promotions');
-    expect(msg.content.text).toContain('all configured chains');
+    expect(msg.content.text).toContain('choose one, several, or all retailers');
   });
 
   it('weekly_deals_digest interpolates category + chains arguments', () => {

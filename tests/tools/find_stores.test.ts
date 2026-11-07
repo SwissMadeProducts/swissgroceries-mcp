@@ -24,14 +24,14 @@ const fakeAdapter: StoreAdapter = {
 
 describe('find_stores tool', () => {
   it('validates input', () => {
-    expect(() => findStoresSchema.parse({ near: { zip: '8001' } })).not.toThrow();
-    expect(() => findStoresSchema.parse({ near: 'invalid' })).toThrow();
+    expect(() => findStoresSchema.parse({ chains: ['migros'], near: { zip: '8001' } })).not.toThrow();
+    expect(() => findStoresSchema.parse({ chains: ['migros'], near: 'invalid' })).toThrow();
   });
 
   it('resolves zip + filters by radius', async () => {
     const r = new AdapterRegistry();
     r.register(fakeAdapter);
-    const out = await findStoresHandler(r, { near: { zip: '8001' }, radiusKm: 5 });
+    const out = await findStoresHandler(r, { chains: ['migros'], near: { zip: '8001' }, radiusKm: 5 });
     expect(out.length).toBe(1);
     expect(out[0].chain).toBe('migros');
   });
@@ -41,7 +41,7 @@ describe('find_stores tool', () => {
     r.register(fakeAdapter);
     let caught: unknown;
     try {
-      await findStoresHandler(r, { near: { zip: '9999' }, radiusKm: 5 });
+      await findStoresHandler(r, { chains: ['migros'], near: { zip: '9999' }, radiusKm: 5 });
     } catch (e) {
       caught = e;
     }

@@ -53,10 +53,10 @@ describe('find_stock schema', () => {
     })).not.toThrow();
   });
 
-  it('accepts {address}', () => {
+  it('rejects {address}', () => {
     expect(() => findStockSchema.parse({
       chain: 'ottos', productId: 'X', near: { address: 'Landstrasse 99, Wettingen' },
-    })).not.toThrow();
+    })).toThrow();
   });
 
   it('accepts omitted near', () => {
@@ -140,3 +140,9 @@ describe('find_stock handler', () => {
     expect((caught as ToolError).code).toBe('adapter_not_registered');
   });
 });
+
+ it('filters stock results to an explicitly requested store ID',async()=>{
+  const r=new AdapterRegistry();r.register(stockingAdapter);
+  const out=await findStockHandler(r,{chain:'ottos',productId:'X',storeId:'not-the-returned-store'});
+  expect(out).toEqual([]);
+ });

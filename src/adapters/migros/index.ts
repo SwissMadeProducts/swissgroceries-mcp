@@ -1,17 +1,4 @@
-// MigrosAdapter — wraps migros-api-wrapper with guest-token auth.
-//
-// Key API shape divergences from plan:
-//   - Wrapper exports { MigrosAPI } (named), not a default object.
-//   - Auth: must call api.account.oauth2.loginGuestToken() before any product call.
-//   - searchProduct returns { productIds: number[], ... } — NOT product objects.
-//   - getProductDetails expects { uids: string[], ... } and returns {"0":{...}, "1":{...}}.
-//   - searchStores returns a plain array (not wrapped).
-//   - getProductPromotionSearch returns { items: [{id, type},...], numberOfItems, startDate, endDate }.
-// Note: migros-api-wrapper does its own fetching internally and is not wrapped
-// with httpJson — the wrapper manages auth tokens and request lifecycle.
-// Caching, retry, and rate-limiting for Migros must be handled at the adapter
-// level or deferred to a future wrapper replacement.
-import { MigrosAPI } from 'migros-api-wrapper';
+import { MigrosAPI } from './client.js';
 import type {
   StoreAdapter, AdapterResult, AdapterError,
   NormalizedProduct, NormalizedStore, NormalizedPromotion, StockResult,
